@@ -37,13 +37,13 @@ const (
 )
 
 func dirTree(out io.Writer, path string, printFiles bool) error {
-	state := make([]bool, 10, 255)
+	state := make(map[int]bool)
 	printTree(out, path, 1, state, printFiles)
 
 	return nil
 }
 
-func printTree(out io.Writer, path string, lvl int, state []bool, printFiles bool) {
+func printTree(out io.Writer, path string, lvl int, state map[int]bool, printFiles bool) {
 	msg := ``
 	i := 1
 	last := false
@@ -120,7 +120,7 @@ func printFolderName(folder os.FileInfo) string {
 	return msg
 }
 
-func printArrow(state []bool, level int, last bool) string {
+func printArrow(state map[int]bool, level int, last bool) string {
 	msg := printPreviewArrows(state, level)
 
 	add := t_arrow
@@ -131,7 +131,7 @@ func printArrow(state []bool, level int, last bool) string {
 	return msg + add
 }
 
-func printPreviewArrows(state []bool, level int) string {
+func printPreviewArrows(state map[int]bool, level int) string {
 	msg := ``
 	for i := 0; i < level-1; i++ {
 		add := empty_arrow
