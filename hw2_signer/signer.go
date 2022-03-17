@@ -1,9 +1,8 @@
 package main
 
 import (
-	"crypto/md5"
-	"encoding/hex"
 	"fmt"
+	"strings"
 	"sync"
 )
 
@@ -13,33 +12,61 @@ func main() {
 
 func prepareWorkers() {
 	wg := &sync.WaitGroup{}
-	dataChanel := make(chan int)
+	md5InChannel := make(chan int)
+	crcInChannel := make(chan int)
+	md5OutChannel := make(chan string)
+	crcOutChannel := make(chan string)
 
-	wg.Add(2)
-	go generateData(dataChanel, wg)
-	go ProcessData(dataChanel, wg)
+	wg.Add(4)
+	go generateData(md5InChannel, crcInChannel, wg)
+	go SingleHash(md5InChannel, md5OutChannel, wg)
+	go MultiHash(crcInChannel, crcOutChannel, wg)
+	go concatHashes(wg, md5OutChannel, crcOutChannel)
 
 	wg.Wait()
 }
 
-func generateData(dataChanel chan<- int, wg *sync.WaitGroup) {
+func generateData(md5Chanel chan int, crcChanel chan int, wg *sync.WaitGroup) {
 	defer wg.Done()
 
-	for i := 0; i <= 10; i++ {
-		dataChanel <- i
+	for j := 0; j <= 10; j++ {
+		md5Chanel <- j
+		crcChanel <- j
 	}
-	close(dataChanel)
+
+	close(md5Chanel)
+	close(crcChanel)
 }
 
-func ProcessData(dataChanel <-chan int, wg *sync.WaitGroup) {
+func SingleHash(in <-chan int, out chan<- string, wg *sync.WaitGroup) {
 	defer wg.Done()
 
-	for data := range dataChanel {
-		fmt.Printf("%x\n", GetMD5Hash(fmt.Sprint(data)))
+	for data := range in {
+		out <- DataSignerMd5(fmt.Sprint(data))
 	}
+
+	close(out)
 }
 
-func GetMD5Hash(text string) string {
-	hash := md5.Sum([]byte(text))
-	return hex.EncodeToString(hash[:])
+func MultiHash(in <-chan int, out chan<- string, wg *sync.WaitGroup) {
+	defer wg.Done()
+
+	for data := range in {
+		out <- DataSignerCrc32(fmt.Sprint(data))
+	}
+
+	close(out)
+}
+
+func concatHashes(wg *sync.WaitGroup, chanels ...chan string) {
+	defer wg.Done()
+	tmp := make([]string, len(chanels))
+
+	for i, chanel := range chanels {
+		for data := range chanel {
+			tmp[i] = data
+		}
+
+		fmt.Println(strings.Join(tmp, "_"))
+	}
 }
